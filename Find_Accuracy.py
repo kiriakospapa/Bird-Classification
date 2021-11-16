@@ -5,22 +5,29 @@ import matplotlib.pyplot as plt
 
 testset = torchvision.datasets.ImageFolder("test", transform=torchvision.transforms.ToTensor())
 
-# Create The model again
-model = model = torchvision.models.resnet34(pretrained=True)
+# Create The models again
+model = torchvision.models.resnet34(pretrained=True)
 model.fc = nn.Linear(model.fc.in_features, len(testset.classes))
+model2 = torchvision.models.resnet18(pretrained=True)
+model2.fc = nn.Linear(model2.fc.in_features, len(testset.classes))
 
 # Set requires_grad_ = False because we don't want to train the already trained model
 for param in model.parameters():
   param = param.requires_grad_(False)
+for param in model2.parameters():
+  param = param.requires_grad_(False)
 
 # Moving the model to GPU
 model.cuda()
+model2.cuda()
 
 # Load the model parameters
-model.load_state_dict(torch.load("pretrained_resnet.pth"))
+model.load_state_dict(torch.load("model1.pth"))
+model2.load_state_dict(torch.load("model2.pth"))
 
 # Turn the model to eval mode
 model.eval()
+model2.eval()
 
 # Define the criterion
 criterion = nn.CrossEntropyLoss().cuda()
@@ -39,8 +46,10 @@ total = 0
 for batch_idc, (images, target) in enumerate(testloader):
     images = images.cuda()
     target = target.cuda()
-    model.eval()
-    output = model(images)
+
+    output1 = model(images)
+    output2 = model2(images)
+    output = output1 + output2
     loss = criterion(output, target)
     running_loss.append(loss.item())
     _, predicted = output.max(1)

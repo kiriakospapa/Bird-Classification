@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as f
-import torchvision
 import torchvision.datasets
 import numpy as np
 import matplotlib.pyplot as plt
@@ -38,13 +36,21 @@ model = torchvision.models.resnet34(pretrained=True)
 for param in model.parameters():
     param = param.requires_grad_(False)
 
-# Add new layers to the model
+model2 = torchvision.models.resnet18(pretrained=True)
+for param in model2.parameters():
+    param = param.requires_grad_(False)
+
+
+# Add new layers to the models
 model.fc = nn.Linear(model.fc.in_features, len(trainset.classes))
+model2.fc = nn.Linear(model2.fc.in_features, len(trainset.classes))
 
-print("The new fully connected layer is : ", model.fc)
+print("The new fully connected layer for model1 is : ", model.fc)
+print("The new fully connected layer for model2 is : ", model2.fc)
 
-# Moving the model to GPU
+# Moving the models to GPU
 model.cuda()
+model2.cuda()
 
 # Define the learning rate
 lr = 0.001
@@ -65,6 +71,7 @@ los_in_every_epoch = []
 # Use cuda to train the model
 model.cuda()
 best_model = 1
+
 # Train the last layer of the model
 for epoch in range(EPOCHS):
 
@@ -72,18 +79,26 @@ for epoch in range(EPOCHS):
     batchloss = 0
     epoch_loss = 0
     model.train()
+    model2.train()
+
+    print("-----------------------------Training Mode-----------------------------------")
+    print(f"-----------------------------EPOCH {epoch}-----------------------------------------")
     for batch_i, (images, target) in enumerate(trainloader):
         images = images.cuda()
         target = target.cuda()
+        print("batch:", batch_i)
 
-        # The model predicts the output
+        # The models predicts the output
         output = model(images)
+        output2 = model2(images)
 
         # Finding the loss between the real values and the output of the model
-        loss = criterion(output, target)
+        loss1 = criterion(output, target)
+        loss2 = criterion(output2, target)
 
         # BackPropagation
         optimizer.zero_grad()
+        loss = loss1 + loss2
         loss.backward()
         optimizer.step()
 
@@ -103,23 +118,28 @@ for epoch in range(EPOCHS):
     model.eval()
     val_loss = 0
     best_epoch_loss = np.inf
+
+    print("-----------------------------Validation Mode---------------------------------")
+    print(f"-----------------------------EPOCH {epoch}-----------------------------------------", epoch)
     for batch_i, (images, target) in enumerate(validloader):
+        print("batch:", batch_i)
         images = images.cuda()
         target = target.cuda()
-        output = model(images)
-        val_loss += criterion(output, target).item()
+        output1 = model(images)
+        output2 = model2(images)
+        val_loss1 = criterion(output1, target).item()
+        val_loss2 = criterion(output2, target).item()
+        val_loss += val_loss1 + val_loss2
 
-    # Save the model with the smallest val error
+    # Save the models with the smallest val error
     if val_loss < best_epoch_loss:
 
-        torch.save(model.state_dict(), "pretrained_resnet.pth")
+        torch.save(model.state_dict(), "model1.pth")
+        torch.save(model2.state_dict(), "model2.pth")
+
         best_model = epoch
         best_epoch_loss = val_loss
     # Save the current value of val loss to compare it to the next value of vall loss
 
 
-print("The best model was at", best_model, "epoch")
-
-
-
-
+print("The best combination of the model was at", best_model, "epoch")
